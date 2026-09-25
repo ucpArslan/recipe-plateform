@@ -8,7 +8,7 @@ import (
 	"recipe-plateform/internal/user/domain/entity"
 
 	"github.com/joho/godotenv"
-	"gorm.io/driver/sqlite"
+	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
@@ -18,33 +18,45 @@ var SpoonacularApiKey string
 
 func ConnectDB() {
 
+	// Local development ke liye .env load karo.
+	// Render par environment variables already available honge.
+	_ = godotenv.Load()
+
 	JWTSecret = os.Getenv("JWT_SECRET")
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal("Some error occur couldn't connect to db")
+
+	// PostgreSQL connection string
+	databaseURL := os.Getenv("DATABASE_URL")
+
+	if databaseURL == "" {
+		log.Fatal("DATABASE_URL is missing")
 	}
 
-	dp_path := os.Getenv("DB_PATH")
-
-	db, err := gorm.Open(sqlite.Open(dp_path), &gorm.Config{
+	db, err := gorm.Open(postgres.Open(databaseURL), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Info),
 	})
-
-	SpoonacularApiKey = os.Getenv("SPOONACULAR_API_KEY")
-
-	if SpoonacularApiKey == "" {
-		log.Fatal("The API key is missing in .env")
-	}
 
 	if err != nil {
 		log.Fatal("Failed to connect database: ", err)
 	}
 
+	SpoonacularApiKey = os.Getenv("SPOONACULAR_API_KEY")
+
+	if SpoonacularApiKey == "" {
+		log.Fatal("The API key is missing")
+	}
+
 	DB = db
 
-	err = db.AutoMigrate(&entity.User{}, recipeEntity.Recipe{}, &recipeEntity.Ingredient{}, recipeEntity.Favorite{})
+	err = db.AutoMigrate(
+		&entity.User{},
+		&recipeEntity.Recipe{},
+		&recipeEntity.Ingredient{},
+		&recipeEntity.Favorite{},
+	)
+
 	if err != nil {
-		log.Fatal("The error occurs")
+		log.Fatal("AutoMigrate failed: ", err)
 	}
-	log.Println("database connected successfully")
+
+	log.Println("PostgreSQL database connected successfully")
 }
